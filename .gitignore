@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+*.env
+.venv/
+venv/
+# VSCode
+.vscode/
+# Hugging Face API key or other secrets
+HF_API_KEY
