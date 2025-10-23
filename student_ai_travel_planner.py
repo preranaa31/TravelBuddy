@@ -127,7 +127,7 @@ def call_huggingface_for_itinerary(destination, start_date, days, budget, intere
     headers = {"Authorization": f"Bearer {HF_API_KEY}"}
     payload = {"inputs": prompt, "options": {"wait_for_model": True}}
     try:
-        response = requests.post(HF_API_URL, headers=headers, json=payload, timeout=60)
+        response = requests.post(headers=headers, json=payload, timeout=60)
         result = response.json()
         text = result[0]["generated_text"] if isinstance(result, list) else str(result)
         try:
@@ -147,7 +147,7 @@ with st.container():
     st.write("Plan quick, budget-friendly trips tailored for students. Get a day-by-day itinerary, cost estimates, and an interactive map.")
     st.markdown("</div>", unsafe_allow_html=True)
 
-# Sidebar
+
 st.sidebar.header("Trip details")
 origin = st.sidebar.text_input("Starting location (optional)", value="")
 destination = st.sidebar.text_input("Destination city (e.g., Paris, France)", value="Bengaluru, India")
@@ -177,7 +177,7 @@ if st.session_state.itinerary:
     if result.get("error"):
         st.error(result["error"])
     else:
-        # Metrics
+       
         cols = st.columns(3)
         with cols[0]:
             st.metric("Destination", destination)
@@ -188,7 +188,7 @@ if st.session_state.itinerary:
             st.metric("Estimated cost (INR)", f"~{est}")
         st.markdown("---")
 
-        # Itinerary
+        
         st.subheader("Itinerary")
         for day in result.get('itinerary', []):
             st.markdown(f"<div class='overlay'><b>Day {day['day']} — {day['date']}</b></div>", unsafe_allow_html=True)
