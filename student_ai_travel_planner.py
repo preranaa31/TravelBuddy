@@ -6,18 +6,26 @@ from geopy.geocoders import Nominatim
 import pandas as pd
 import os
 import random
-
 import datetime
 import requests
 import json
 
+
 if "itinerary" not in st.session_state:
     st.session_state.itinerary = None
 
+
 APP_TITLE = "Student AI Travel Planner"
-BACKGROUND_IMAGE = "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1400&q=80"  # light background
+BACKGROUND_IMAGE = "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1400&q=80"
 MAP_START_ZOOM = 12
 GEOCODER_USER_AGENT = "student_travel_planner_app"
+
+
+HF_API_KEY = os.getenv("HF_API_KEY")
+HF_API_URL = os.getenv("HF_API_URL")  
+
+
+
 
 def set_background():
     st.markdown(
@@ -49,7 +57,6 @@ def set_background():
         unsafe_allow_html=True,
     )
 
-
 def geocode_city(city_name):
     geolocator = Nominatim(user_agent=GEOCODER_USER_AGENT)
     try:
@@ -59,7 +66,6 @@ def geocode_city(city_name):
     except Exception:
         return None
     return None
-
 
 def sample_pois_for_city(city_latlon, interests, n=8):
     lat, lon = city_latlon
@@ -111,9 +117,6 @@ def generate_rule_based_itinerary(destination, start_date, days, budget, interes
     budget_est = simple_budget_estimate(pois)
     return {"latlon": latlon, "itinerary": itinerary, "pois": pois, "budget_est": budget_est}
 
-
-HF_API_KEY = os.getenv("HF_API_KEY")
-
 def call_huggingface_for_itinerary(destination, start_date, days, budget, interests):
     prompt = f"""
     You are a travel planner for students on a budget.
@@ -127,15 +130,16 @@ def call_huggingface_for_itinerary(destination, start_date, days, budget, intere
     headers = {"Authorization": f"Bearer {HF_API_KEY}"}
     payload = {"inputs": prompt, "options": {"wait_for_model": True}}
     try:
-        response = requests.post(headers=headers, json=payload, timeout=60)
+        response = requests.post(HF_API_URL, headers=headers, json=payload, timeout=60)
         result = response.json()
         text = result[0]["generated_text"] if isinstance(result, list) else str(result)
         try:
             return json.loads(text)
         except Exception:
-            return {"raw": text}  # fallback to raw text
+            return {"raw": text}  
     except Exception as e:
         return {"error": str(e)}
+
 
 
 st.set_page_config(page_title=APP_TITLE, layout="wide")
@@ -149,7 +153,10 @@ with st.container():
 
 
 st.sidebar.header("Trip details")
-origin = st.sidebar.text_input("Starting location (optional)", value="")
+origin = st.sidebar.text_input("Starting location", value="")
+if not origin:
+    st.sidebar.error("Starting location is required!")
+
 destination = st.sidebar.text_input("Destination city (e.g., Paris, France)", value="Bengaluru, India")
 start_date = st.sidebar.date_input("Start date", value=datetime.date.today() + datetime.timedelta(days=7))
 days = st.sidebar.number_input("Trip length (days)", min_value=1, max_value=14, value=2)
@@ -164,12 +171,15 @@ use_hf = st.sidebar.checkbox("Use Hugging Face for itinerary generation", value=
 
 
 if st.sidebar.button("Generate itinerary"):
-    with st.spinner("Creating your student-friendly itinerary..."):
-        if use_hf and HF_API_KEY:
-            result = call_huggingface_for_itinerary(destination, start_date, days, budget, interests_raw)
-        else:
-            result = generate_rule_based_itinerary(destination, start_date, days, budget, interests_raw)
-        st.session_state.itinerary = result
+    if not origin:
+        st.warning("Please enter a starting location to continue.")
+    else:
+        with st.spinner("Creating your student-friendly itinerary..."):
+            if use_hf and HF_API_KEY:
+                result = call_huggingface_for_itinerary(destination, start_date, days, budget, interests_raw)
+            else:
+                result = generate_rule_based_itinerary(destination, start_date, days, budget, interests_raw)
+            st.session_state.itinerary = result
 
 
 if st.session_state.itinerary:
@@ -177,7 +187,7 @@ if st.session_state.itinerary:
     if result.get("error"):
         st.error(result["error"])
     else:
-       
+        
         cols = st.columns(3)
         with cols[0]:
             st.metric("Destination", destination)
@@ -196,19 +206,28 @@ if st.session_state.itinerary:
                 st.markdown(f"<div class='overlay'>• {act['name']} ({act['category']}) — approx {act['duration_hours']} hr — cost: {act['price']}</div>", unsafe_allow_html=True)
             st.markdown("---")
 
-        st.subheader("Map — suggested spots")
-        latlon = result.get('latlon') or (result['pois'][0]['lat'], result['pois'][0]['lon'])
-        fmap = folium.Map(location=latlon, zoom_start=MAP_START_ZOOM)
-        mc = MarkerCluster().add_to(fmap)
+        
+        orig_coords = geocode_city(origin)
+        dest_coords = result.get('latlon') or (result['pois'][0]['lat'], result['pois'][0]['lon'])
+        fmap = folium.Map(location=orig_coords, zoom_start=MAP_START_ZOOM)
+
+        
+        folium.Marker(location=orig_coords, popup="Starting location", icon=folium.Icon(color='green')).add_to(fmap)
+        folium.Marker(location=dest_coords, popup="Destination", icon=folium.Icon(color='red')).add_to(fmap)
+
+        
+        folium.PolyLine([orig_coords, dest_coords], color="blue", weight=4, opacity=0.7).add_to(fmap)
+
+    
+        mc = MarkerCluster()
+        mc.add_to(fmap)
         for p in result.get('pois', []):
             popup_html = f"<b>{p['name']}</b><br>{p['category']} — {p['price']} — {p['duration_hours']}h"
             folium.Marker(location=(p['lat'],p['lon']), popup=popup_html, tooltip=p['name']).add_to(mc)
-        if origin:
-            orig = geocode_city(origin)
-            if orig:
-                folium.Marker(orig, popup="Starting location", icon=folium.Icon(color='green')).add_to(fmap)
+
         st_folium(fmap, width=900, height=500)
 
+        # Export CSV
         csv_export = []
         for day in result.get('itinerary', []):
             for act in day['activities']:
