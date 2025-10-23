@@ -1,13 +1,21 @@
-# Python
+# Python cache and compiled files
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
+
+# Environment and virtualenv
 .env
 *.env
 .venv/
 venv/
-# VSCode
+
+# VS Code settings
 .vscode/
-# Hugging Face API key or other secrets
+
+# OS files
+.DS_Store
+
+# Secrets (DO NOT UPLOAD)
 HF_API_KEY
+

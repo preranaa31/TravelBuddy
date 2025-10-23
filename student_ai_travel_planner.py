@@ -6,13 +6,11 @@ from geopy.geocoders import Nominatim
 import pandas as pd
 import os
 import random
+
 import datetime
 import requests
 import json
 
-# -------------------------------
-# Session state for persistent itinerary
-# -------------------------------
 if "itinerary" not in st.session_state:
     st.session_state.itinerary = None
 
@@ -21,9 +19,6 @@ BACKGROUND_IMAGE = "https://images.unsplash.com/photo-1507525428034-b723cf961d3e
 MAP_START_ZOOM = 12
 GEOCODER_USER_AGENT = "student_travel_planner_app"
 
-# -------------------------------
-# Background CSS
-# -------------------------------
 def set_background():
     st.markdown(
         f"""
@@ -54,9 +49,7 @@ def set_background():
         unsafe_allow_html=True,
     )
 
-# -------------------------------
-# Geocoding
-# -------------------------------
+
 def geocode_city(city_name):
     geolocator = Nominatim(user_agent=GEOCODER_USER_AGENT)
     try:
@@ -67,9 +60,7 @@ def geocode_city(city_name):
         return None
     return None
 
-# -------------------------------
-# Sample POIs generator
-# -------------------------------
+
 def sample_pois_for_city(city_latlon, interests, n=8):
     lat, lon = city_latlon
     pois = []
@@ -120,11 +111,8 @@ def generate_rule_based_itinerary(destination, start_date, days, budget, interes
     budget_est = simple_budget_estimate(pois)
     return {"latlon": latlon, "itinerary": itinerary, "pois": pois, "budget_est": budget_est}
 
-# -------------------------------
-# Hugging Face API Integration
-# -------------------------------
-HF_API_URL = "https://api-inference.huggingface.co/models/gpt2"  # example, can change to any text-generation model
-HF_API_KEY = os.getenv("HF_API_KEY")  # set your Hugging Face API key as env variable
+
+HF_API_KEY = os.getenv("HF_API_KEY")
 
 def call_huggingface_for_itinerary(destination, start_date, days, budget, interests):
     prompt = f"""
@@ -149,9 +137,7 @@ def call_huggingface_for_itinerary(destination, start_date, days, budget, intere
     except Exception as e:
         return {"error": str(e)}
 
-# -------------------------------
-# Streamlit UI
-# -------------------------------
+
 st.set_page_config(page_title=APP_TITLE, layout="wide")
 set_background()
 
@@ -176,9 +162,7 @@ interests_raw = st.sidebar.multiselect(
 )
 use_hf = st.sidebar.checkbox("Use Hugging Face for itinerary generation", value=False)
 
-# -------------------------------
-# Generate itinerary button
-# -------------------------------
+
 if st.sidebar.button("Generate itinerary"):
     with st.spinner("Creating your student-friendly itinerary..."):
         if use_hf and HF_API_KEY:
@@ -187,9 +171,7 @@ if st.sidebar.button("Generate itinerary"):
             result = generate_rule_based_itinerary(destination, start_date, days, budget, interests_raw)
         st.session_state.itinerary = result
 
-# -------------------------------
-# Display itinerary
-# -------------------------------
+
 if st.session_state.itinerary:
     result = st.session_state.itinerary
     if result.get("error"):
@@ -214,7 +196,6 @@ if st.session_state.itinerary:
                 st.markdown(f"<div class='overlay'>• {act['name']} ({act['category']}) — approx {act['duration_hours']} hr — cost: {act['price']}</div>", unsafe_allow_html=True)
             st.markdown("---")
 
-        # Map
         st.subheader("Map — suggested spots")
         latlon = result.get('latlon') or (result['pois'][0]['lat'], result['pois'][0]['lon'])
         fmap = folium.Map(location=latlon, zoom_start=MAP_START_ZOOM)
@@ -228,7 +209,6 @@ if st.session_state.itinerary:
                 folium.Marker(orig, popup="Starting location", icon=folium.Icon(color='green')).add_to(fmap)
         st_folium(fmap, width=900, height=500)
 
-        # CSV export
         csv_export = []
         for day in result.get('itinerary', []):
             for act in day['activities']:
@@ -246,9 +226,7 @@ if st.session_state.itinerary:
 
         st.success("Itinerary ready — enjoy your trip! ✈️")
 
-# -------------------------------
-# Footer tips
-# -------------------------------
+
 with st.container():
     st.markdown("""
         <div style="
